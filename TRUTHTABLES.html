@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Advanced Interactive Truth Tables</title>
+  <style>
+    /* Dark futuristic green theme – sequential rounds from basic to complex */
+    :root {
+      --bg-color: #1c1c1c;           
+      --container-bg: #2a2a2a;        
+      --primary-color: #66ff99;       
+      --accent-color: #33cc88;        
+      --text-color: #e0e0e0;
+      --error-color: #ff5555;
+      --modal-bg: rgba(0, 0, 0, 0.8);
+    }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      overflow-x: hidden;
+    }
+    .container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 20px;
+      background: var(--container-bg);
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.7);
+      position: relative;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      color: var(--primary-color);
+    }
+    h2 {
+      text-align: center;
+      margin: 20px 0;
+      border-bottom: 1px solid var(--accent-color);
+      padding-bottom: 5px;
+    }
+    #tableContainer {
+      margin: 20px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+    }
+    th, td {
+      border: 1px solid #333;
+      padding: 8px;
+      text-align: center;
+    }
+    input {
+      width: 50px;
+      padding: 5px;
+      font-size: 16px;
+      text-align: center;
+      border: 2px solid #555;
+      border-radius: 4px;
+      background: #222;
+      color: var(--text-color);
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    input.correct {
+      background-color: #004d33;
+      border-color: var(--primary-color);
+    }
+    input.incorrect {
+      background-color: #550000;
+      border-color: var(--error-color);
+    }
+    button {
+      background: var(--primary-color);
+      border: none;
+      color: var(--bg-color);
+      padding: 10px 20px;
+      margin: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: var(--accent-color);
+    }
+    .controls {
+      text-align: center;
+      margin-top: 10px;
+    }
+    /* Modal for corrections/final score */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: var(--modal-bg);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-content {
+      background: var(--container-bg);
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+      position: relative;
+      animation: popUp 0.4s ease-out;
+    }
+    @keyframes popUp {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .modal-content p {
+      margin: 10px 0;
+    }
+    .close-modal {
+      position: absolute;
+      top: 5px; right: 10px;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--primary-color);
+    }
+    #modalNav {
+      margin-top: 15px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Advanced Interactive Truth Tables</h1>
+    <!-- The table container where each round’s table appears -->
+    <div id="tableContainer"></div>
+    <!-- Control Buttons -->
+    <div class="controls">
+      <button onclick="checkTable()">Check</button>
+      <button onclick="clearTable()">Clear</button>
+      <button onclick="newTable()">New Table</button>
+      <button onclick="submitAll()">Submit All</button>
+    </div>
+  </div>
+
+  <!-- Modal for Corrections/Final Score -->
+  <div class="modal" id="modal">
+    <div class="modal-content" id="modalContent">
+      <span class="close-modal" onclick="closeModal()">×</span>
+      <div id="modalMessage"></div>
+      <div id="modalNav">
+        <button onclick="prevCorrection()">Prev Correction</button>
+        <button onclick="nextCorrection()">Next Correction</button>
+        <button onclick="goToCorrection()">Go To Correction</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Table Definitions ---
+    // We define eight rounds, from basic to complex.
+    const tableDefinitions = [
+      {
+        type: 'implication',
+        title: 'Implication (P → Q)',
+        tableHTML: `<h2>Implication (P → Q)</h2>
+          <table>
+            <tr><th>P</th><th>Q</th><th>P → Q</th></tr>
+            <tr><td>T</td><td>T</td><td><input type="text" class="answer" data-index="0" placeholder="Answer"></td></tr>
+            <tr><td>T</td><td>F</td><td><input type="text" class="answer" data-index="1" placeholder="Answer"></td></tr>
+            <tr><td>F</td><td>T</td><td><input type="text" class="answer" data-index="2" placeholder="Answer"></td></tr>
+            <tr><td>F</td><td>F</td><td><input type="text" class="answer" data-index="3" placeholder="Answer"></td></tr>
+          </table>`,
+        correctAnswers: ["T", "F", "T", "T"],
+        explanation: "An implication is false only when P is true and Q is false."
+      },
+      {
+        type: 'conjunction',
+        title: 'Conjunction (P ∧ Q)',
+        tableHTML: `<h2>Conjunction (P ∧ Q)</h2>
+          <table>
+            <tr><th>P</th><th>Q</th><th>P ∧ Q</th></tr>
+            <tr><td>T</td><td>T</td><td><input type="text" class="answer" data-index="0" placeholder="Answer"></td></tr>
+            <tr><td>T</td><td>F</td><td><input type="text" class="answer" data-index="1" placeholder="Answer"></td></tr>
+            <tr><td>F</td><td>T</td><td><input type="text" class="answer" data-index="2" placeholder="Answer"></td></tr>
+            <tr><td>F</td><td>F</td><td><input type="text" class="answer" data-index="3" placeholder="Answer"></td></tr>
+          </table>`,
+        correctAnswers: ["T", "F", "F", "F"],
+        explanation: "A conjunction is true only if both P and Q are true."
+      },
+      {
+        type: 'disjunction',
+        title: 'Disjunction (P ∨ Q)',
+        tableHTML: `<h2>Disjunction (P ∨ Q)</h2>
+          <table>
+            <tr><th>P</th><th>Q</th><th>P ∨ Q</th></tr>
+            <tr><td>T</td><td>T</td><td><input type="text" class="answer" data-index="0" placeholder="Answer"></td></tr>
+            <tr><td>T</td><td>F</td><td><input type="text" class="answer" data-index="1" placeholder="Answer"></td></tr>
+            <tr><td>F</td><td>T</td><td><input type="text" class="answer" data-index="2" placeholder="Answer"></td></tr>
+            <tr><td>F</td><td>F</td><td><input type="text" class="answer" data-index="3" placeholder="Answer"></td></tr>
+          </table>`,
+        correctAnswers: ["T", "T", "T", "F"],
+        explanation: "A disjunction is false only if both P and Q are false."
+      },
+      {
+        type: 'biImplication',
+        title: 'Bi-implication (P ↔ Q)',
+        tableHTML: `<h2>Bi-implication (P ↔ Q)</h2>
+          <table>
+            <tr><th>P</th><th>Q</th><th>P ↔ Q</th></tr>
+            <tr><td>T</td><td>T</td><td><input type="text" class="answer" data-index="0" placeholder="Answer"></td></tr>
+            <tr><td>T</td><td>F</td><td><input type="text" class="answer" data-index="1" placeholder="Answer"></td></tr>
+            <tr><td>F</td><td>T</td><td><input type="text" class="answer" data-index="2" placeholder="Answer"></td></tr>
+            <tr><td>F</td><td>F</td><td><input type="text" class="answer" data-index="3" placeholder="Answer"></td></tr>
+          </table>`,
+        correctAnswers: ["T", "F", "F", "T"],
+        explanation: "A bi-implication is true when P and Q have the same truth value."
+      },
+      {
+        type: 'comb1',
+        title: 'Combined Expression 1: (P ∧ Q) → ¬R',
+        tableHTML: `<h2>(P ∧ Q) → ¬R</h2>
+          <table>
+            <tr>
+              <th>P</th><th>Q</th><th>R</th>
+              <th>P ∧ Q</th><th>¬R</th><th>(P ∧ Q) → ¬R</th>
+            </tr>
+            <tr>
+              <td>T</td><td>T</td><td>T</td>
+              <td><input type="text" class="answer" data-index="0" placeholder="P∧Q"></td>
+              <td><input type="text" class="answer" data-index="1" placeholder="¬R"></td>
+              <td><input type="text" class="answer" data-index="2" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>T</td><td>F</td>
+              <td><input type="text" class="answer" data-index="3" placeholder="P∧Q"></td>
+              <td><input type="text" class="answer" data-index="4" placeholder="¬R"></td>
+              <td><input type="text" class="answer" data-index="5" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>F</td><td>T</td>
+              <td><input type="text" class="answer" data-index="6" placeholder="P∧Q"></td>
+              <td><input type="text" class="answer" data-index="7" placeholder="¬R"></td>
+              <td><input type="text" class="answer" data-index="8" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>F</td><td>F</td>
+              <td><input type="text" class="answer" data-index="9" placeholder="P∧Q"></td>
+              <td><input type="text" class="answer" data-index="10" placeholder="¬R"></td>
+              <td><input type="text" class="answer" data-index="11" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>T</td><td>T</td>
+              <td><input type="text" class="answer" data-index="12" placeholder="P∧Q"></td>
+              <td><input type="text" class="answer" data-index="13" placeholder="¬R"></td>
+              <td><input type="text" class="answer" data-index="14" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>T</td><td>F</td>
+              <td><input type="text" class="answer" data-index="15" placeholder="P∧Q"></td>
+              <td><input type="text" class="answer" data-index="16" placeholder="¬R"></td>
+              <td><input type="text" class="answer" data-index="17" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>F</td><td>T</td>
+              <td><input type="text" class="answer" data-index="18" placeholder="P∧Q"></td>
+              <td><input type="text" class="answer" data-index="19" placeholder="¬R"></td>
+              <td><input type="text" class="answer" data-index="20" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>F</td><td>F</td>
+              <td><input type="text" class="answer" data-index="21" placeholder="P∧Q"></td>
+              <td><input type="text" class="answer" data-index="22" placeholder="¬R"></td>
+              <td><input type="text" class="answer" data-index="23" placeholder="Final"></td>
+            </tr>
+          </table>`,
+        correctAnswers: [
+          // Row 1: P=T,Q=T,R=T: P∧Q = T, ¬R = F, Final: T→F = F.
+          "T","F","F",
+          // Row 2: P=T,Q=T,R=F: P∧Q = T, ¬R = T, Final: T→T = T.
+          "T","T","T",
+          // Row 3: P=T,Q=F,R=T: P∧Q = F, ¬R = F, Final: F→F = T.
+          "F","F","T",
+          // Row 4: P=T,Q=F,R=F: P∧Q = F, ¬R = T, Final: F→T = T.
+          "F","T","T",
+          // Row 5: P=F,Q=T,R=T: P∧Q = F, ¬R = F, Final: F→F = T.
+          "F","F","T",
+          // Row 6: P=F,Q=T,R=F: P∧Q = F, ¬R = T, Final: F→T = T.
+          "F","T","T",
+          // Row 7: P=F,Q=F,R=T: P∧Q = F, ¬R = F, Final: F→F = T.
+          "F","F","T",
+          // Row 8: P=F,Q=F,R=F: P∧Q = F, ¬R = T, Final: F→T = T.
+          "F","T","T"
+        ],
+        explanation: "For (P ∧ Q) → ¬R, compute P∧Q (true only if both P and Q are true) and ¬R (true when R is false). The implication is false only when P∧Q is true and ¬R is false."
+      },
+      {
+        type: 'comb2',
+        title: 'Combined Expression 2: ¬(P ∨ Q) → R',
+        tableHTML: `<h2>¬(P ∨ Q) → R</h2>
+          <table>
+            <tr>
+              <th>P</th><th>Q</th><th>R</th>
+              <th>P ∨ Q</th><th>¬(P ∨ Q)</th><th>¬(P ∨ Q) → R</th>
+            </tr>
+            <tr>
+              <td>T</td><td>T</td><td>T</td>
+              <td><input type="text" class="answer" data-index="0" placeholder="P∨Q"></td>
+              <td><input type="text" class="answer" data-index="1" placeholder="¬(P∨Q)"></td>
+              <td><input type="text" class="answer" data-index="2" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>T</td><td>F</td>
+              <td><input type="text" class="answer" data-index="3" placeholder="P∨Q"></td>
+              <td><input type="text" class="answer" data-index="4" placeholder="¬(P∨Q)"></td>
+              <td><input type="text" class="answer" data-index="5" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>F</td><td>T</td>
+              <td><input type="text" class="answer" data-index="6" placeholder="P∨Q"></td>
+              <td><input type="text" class="answer" data-index="7" placeholder="¬(P∨Q)"></td>
+              <td><input type="text" class="answer" data-index="8" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>F</td><td>F</td>
+              <td><input type="text" class="answer" data-index="9" placeholder="P∨Q"></td>
+              <td><input type="text" class="answer" data-index="10" placeholder="¬(P∨Q)"></td>
+              <td><input type="text" class="answer" data-index="11" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>T</td><td>T</td>
+              <td><input type="text" class="answer" data-index="12" placeholder="P∨Q"></td>
+              <td><input type="text" class="answer" data-index="13" placeholder="¬(P∨Q)"></td>
+              <td><input type="text" class="answer" data-index="14" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>T</td><td>F</td>
+              <td><input type="text" class="answer" data-index="15" placeholder="P∨Q"></td>
+              <td><input type="text" class="answer" data-index="16" placeholder="¬(P∨Q)"></td>
+              <td><input type="text" class="answer" data-index="17" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>F</td><td>T</td>
+              <td><input type="text" class="answer" data-index="18" placeholder="P∨Q"></td>
+              <td><input type="text" class="answer" data-index="19" placeholder="¬(P∨Q)"></td>
+              <td><input type="text" class="answer" data-index="20" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>F</td><td>F</td>
+              <td><input type="text" class="answer" data-index="21" placeholder="P∨Q"></td>
+              <td><input type="text" class="answer" data-index="22" placeholder="¬(P∨Q)"></td>
+              <td><input type="text" class="answer" data-index="23" placeholder="Final"></td>
+            </tr>
+          </table>`,
+        correctAnswers: [
+          // Row 1: P=T,Q=T,R=T: P∨Q=T, ¬(P∨Q)=F, Final: F→T = T.
+          "T","F","T",
+          // Row 2: P=T,Q=T,R=F: T, F, Final: F→F = T.
+          "T","F","T",
+          // Row 3: P=T,Q=F,R=T: T, F, Final: F→T = T.
+          "T","F","T",
+          // Row 4: P=T,Q=F,R=F: T, F, Final: F→F = T.
+          "T","F","T",
+          // Row 5: P=F,Q=T,R=T: T, F, Final: F→T = T.
+          "T","F","T",
+          // Row 6: P=F,Q=T,R=F: T, F, Final: F→F = T.
+          "T","F","T",
+          // Row 7: P=F,Q=F,R=T: P∨Q=F, ¬(P∨Q)=T, Final: T→T = T.
+          "F","T","T",
+          // Row 8: P=F,Q=F,R=F: F, T, Final: T→F = F.
+          "F","T","F"
+        ],
+        explanation: "For ¬(P ∨ Q) → R, first compute P∨Q then its negation; the implication is false only if ¬(P∨Q) is true and R is false."
+      },
+      {
+        type: 'comb3',
+        title: 'Combined Expression 3: (P → Q) ∧ (Q → R)',
+        tableHTML: `<h2>(P → Q) ∧ (Q → R)</h2>
+          <table>
+            <tr>
+              <th>P</th><th>Q</th><th>R</th>
+              <th>P → Q</th><th>Q → R</th><th>(P → Q) ∧ (Q → R)</th>
+            </tr>
+            <tr>
+              <td>T</td><td>T</td><td>T</td>
+              <td><input type="text" class="answer" data-index="0" placeholder="P→Q"></td>
+              <td><input type="text" class="answer" data-index="1" placeholder="Q→R"></td>
+              <td><input type="text" class="answer" data-index="2" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>T</td><td>F</td>
+              <td><input type="text" class="answer" data-index="3" placeholder="P→Q"></td>
+              <td><input type="text" class="answer" data-index="4" placeholder="Q→R"></td>
+              <td><input type="text" class="answer" data-index="5" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>F</td><td>T</td>
+              <td><input type="text" class="answer" data-index="6" placeholder="P→Q"></td>
+              <td><input type="text" class="answer" data-index="7" placeholder="Q→R"></td>
+              <td><input type="text" class="answer" data-index="8" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>F</td><td>F</td>
+              <td><input type="text" class="answer" data-index="9" placeholder="P→Q"></td>
+              <td><input type="text" class="answer" data-index="10" placeholder="Q→R"></td>
+              <td><input type="text" class="answer" data-index="11" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>T</td><td>T</td>
+              <td><input type="text" class="answer" data-index="12" placeholder="P→Q"></td>
+              <td><input type="text" class="answer" data-index="13" placeholder="Q→R"></td>
+              <td><input type="text" class="answer" data-index="14" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>T</td><td>F</td>
+              <td><input type="text" class="answer" data-index="15" placeholder="P→Q"></td>
+              <td><input type="text" class="answer" data-index="16" placeholder="Q→R"></td>
+              <td><input type="text" class="answer" data-index="17" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>F</td><td>T</td>
+              <td><input type="text" class="answer" data-index="18" placeholder="P→Q"></td>
+              <td><input type="text" class="answer" data-index="19" placeholder="Q→R"></td>
+              <td><input type="text" class="answer" data-index="20" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>F</td><td>F</td>
+              <td><input type="text" class="answer" data-index="21" placeholder="P→Q"></td>
+              <td><input type="text" class="answer" data-index="22" placeholder="Q→R"></td>
+              <td><input type="text" class="answer" data-index="23" placeholder="Final"></td>
+            </tr>
+          </table>`,
+        correctAnswers: [
+          // Row 1: P=T,Q=T,R=T: P→Q=T, Q→R=T, Final=T.
+          "T","T","T",
+          // Row 2: P=T,Q=T,R=F: P→Q=T, Q→R=F, Final=F.
+          "T","F","F",
+          // Row 3: P=T,Q=F,R=T: P→Q=F, Q→R=T, Final=F.
+          "F","T","F",
+          // Row 4: P=T,Q=F,R=F: P→Q=F, Q→R=T, Final=F.
+          "F","T","F",
+          // Row 5: P=F,Q=T,R=T: P→Q=T, Q→R=T, Final=T.
+          "T","T","T",
+          // Row 6: P=F,Q=T,R=F: P→Q=T, Q→R=F, Final=F.
+          "T","F","F",
+          // Row 7: P=F,Q=F,R=T: P→Q=T, Q→R=T, Final=T.
+          "T","T","T",
+          // Row 8: P=F,Q=F,R=F: P→Q=T, Q→R=T, Final=T.
+          "T","T","T"
+        ],
+        explanation: "For (P → Q) ∧ (Q → R), compute each implication (an implication is false only when its antecedent is true and its consequent is false) and then take the logical AND."
+      },
+      {
+        type: 'comb4',
+        title: 'Combined Expression 4: (P ⊕ Q) → R',
+        tableHTML: `<h2>(P ⊕ Q) → R</h2>
+          <table>
+            <tr>
+              <th>P</th><th>Q</th><th>R</th>
+              <th>P ⊕ Q</th><th>(P ⊕ Q) → R</th>
+            </tr>
+            <tr>
+              <td>T</td><td>T</td><td>T</td>
+              <td><input type="text" class="answer" data-index="0" placeholder="XOR"></td>
+              <td><input type="text" class="answer" data-index="1" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>T</td><td>F</td>
+              <td><input type="text" class="answer" data-index="2" placeholder="XOR"></td>
+              <td><input type="text" class="answer" data-index="3" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>F</td><td>T</td>
+              <td><input type="text" class="answer" data-index="4" placeholder="XOR"></td>
+              <td><input type="text" class="answer" data-index="5" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>T</td><td>F</td><td>F</td>
+              <td><input type="text" class="answer" data-index="6" placeholder="XOR"></td>
+              <td><input type="text" class="answer" data-index="7" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>T</td><td>T</td>
+              <td><input type="text" class="answer" data-index="8" placeholder="XOR"></td>
+              <td><input type="text" class="answer" data-index="9" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>T</td><td>F</td>
+              <td><input type="text" class="answer" data-index="10" placeholder="XOR"></td>
+              <td><input type="text" class="answer" data-index="11" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>F</td><td>T</td>
+              <td><input type="text" class="answer" data-index="12" placeholder="XOR"></td>
+              <td><input type="text" class="answer" data-index="13" placeholder="Final"></td>
+            </tr>
+            <tr>
+              <td>F</td><td>F</td><td>F</td>
+              <td><input type="text" class="answer" data-index="14" placeholder="XOR"></td>
+              <td><input type="text" class="answer" data-index="15" placeholder="Final"></td>
+            </tr>
+          </table>`,
+        correctAnswers: [
+          // Row 1: P=T,Q=T,R=T: XOR = F, Final: F→T = T.
+          "F","T",
+          // Row 2: P=T,Q=T,R=F: XOR = F, Final: F→F = T.
+          "F","T",
+          // Row 3: P=T,Q=F,R=T: XOR = T, Final: T→T = T.
+          "T","T",
+          // Row 4: P=T,Q=F,R=F: XOR = T, Final: T→F = F.
+          "T","F",
+          // Row 5: P=F,Q=T,R=T: XOR = T, Final: T→T = T.
+          "T","T",
+          // Row 6: P=F,Q=T,R=F: XOR = T, Final: T→F = F.
+          "T","F",
+          // Row 7: P=F,Q=F,R=T: XOR = F, Final: F→T = T.
+          "F","T",
+          // Row 8: P=F,Q=F,R=F: XOR = F, Final: F→F = T.
+          "F","T"
+        ],
+        explanation: "For (P ⊕ Q) → R, compute the XOR (which is true if P and Q differ, false otherwise) and then the implication (false only if the XOR is true and R is false)."
+      }
+    ];
+    
+    // --- Global Variables ---
+    // We'll use a sequential index so that each new table is the next round.
+    let tableIndex = 0;
+    let currentTableDefinition = null;
+    let currentErrors = [];
+    let currentErrorIndex = 0;
+    let tableResults = []; // Keeps track of each round's score
+    
+    // --- Functions to Generate and Manage Tables ---
+    // newTable() picks the next table definition in order.
+    function newTable() {
+      currentTableDefinition = tableDefinitions[tableIndex];
+      document.getElementById("tableContainer").innerHTML = currentTableDefinition.tableHTML;
+      // Reset error state
+      currentErrors = [];
+      currentErrorIndex = 0;
+      // Cycle tableIndex (wrap around when reaching the end)
+      tableIndex = (tableIndex + 1) % tableDefinitions.length;
+    }
+    // clearTable() resets the current table's inputs.
+    function clearTable() {
+      const inputs = document.querySelectorAll("#tableContainer input.answer");
+      inputs.forEach(inp => {
+        inp.value = "";
+        inp.classList.remove("correct", "incorrect");
+      });
+    }
+    // checkTable() validates the current inputs, highlights them, and stores the score.
+    function checkTable() {
+      const inputs = document.querySelectorAll("#tableContainer input.answer");
+      currentErrors = [];
+      let correctCount = 0;
+      for (let i = 0; i < inputs.length; i++) {
+        const userVal = inputs[i].value.trim().toUpperCase();
+        if (userVal === currentTableDefinition.correctAnswers[i]) {
+          inputs[i].classList.add("correct");
+          inputs[i].classList.remove("incorrect");
+          correctCount++;
+        } else {
+          inputs[i].classList.add("incorrect");
+          inputs[i].classList.remove("correct");
+          currentErrors.push({
+            index: i,
+            user: userVal || "[blank]",
+            correct: currentTableDefinition.correctAnswers[i],
+            explanation: currentTableDefinition.explanation
+          });
+        }
+      }
+      // Record this round's score
+      tableResults.push({ correct: correctCount, total: inputs.length });
+      // Show modal with feedback
+      if (currentErrors.length > 0) {
+        currentErrorIndex = 0;
+        showModal(generateErrorMessage(currentErrors[currentErrorIndex], currentErrorIndex + 1, currentErrors.length));
+      } else {
+        showModal("<p>All answers correct! Score: " + correctCount + " / " + inputs.length + "</p>");
+      }
+    }
+    // generateErrorMessage() returns the HTML for one error message.
+    function generateErrorMessage(errorObj, current, total) {
+      return `<p>Error in input ${errorObj.index + 1}: You entered '${errorObj.user}', but the correct answer is '${errorObj.correct}'.</p>
+              <p>Correction ${current} of ${total}.</p>
+              <p><em>${errorObj.explanation}</em></p>`;
+    }
+    
+    // --- Modal Functions ---
+    function showModal(message) {
+      const modal = document.getElementById("modal");
+      const modalMessage = document.getElementById("modalMessage");
+      const modalNav = document.getElementById("modalNav");
+      modalMessage.innerHTML = message;
+      modalNav.style.display = currentErrors.length > 0 ? "block" : "none";
+      modal.style.display = "flex";
+    }
+    function closeModal() {
+      document.getElementById("modal").style.display = "none";
+    }
+    function nextCorrection() {
+      if (currentErrors.length === 0) return;
+      currentErrorIndex = (currentErrorIndex + 1) % currentErrors.length;
+      const msg = generateErrorMessage(currentErrors[currentErrorIndex], currentErrorIndex + 1, currentErrors.length);
+      document.getElementById("modalMessage").innerHTML = msg;
+    }
+    function prevCorrection() {
+      if (currentErrors.length === 0) return;
+      currentErrorIndex = (currentErrorIndex - 1 + currentErrors.length) % currentErrors.length;
+      const msg = generateErrorMessage(currentErrors[currentErrorIndex], currentErrorIndex + 1, currentErrors.length);
+      document.getElementById("modalMessage").innerHTML = msg;
+    }
+    function goToCorrection() {
+      if (currentErrors.length === 0) return;
+      const inputs = document.querySelectorAll("#tableContainer input.answer");
+      inputs[currentErrors[currentErrorIndex].index].scrollIntoView({ behavior: "smooth", block: "center" });
+      closeModal();
+    }
+    
+    // --- Final Score and Review ---
+    function submitAll() {
+      let totalCorrect = 0, totalQuestions = 0;
+      tableResults.forEach(result => {
+        totalCorrect += result.correct;
+        totalQuestions += result.total;
+      });
+      const percentage = totalQuestions ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+      let message = `<p>Final Score: ${totalCorrect} / ${totalQuestions} (${percentage}%)</p>`;
+      if (percentage === 100) {
+        message += `<p style="color: var(--primary-color);">All perfect! Great job!</p>`;
+      } else {
+        message += `<p style="color: var(--error-color);">Some answers need review.</p>
+                    <button onclick="redirectToFirstError()">Review First Error</button>`;
+      }
+      showModal(message);
+    }
+    function redirectToFirstError() {
+      if (currentErrors.length > 0) {
+        goToCorrection();
+      }
+      closeModal();
+    }
+    
+    // --- Initialize on Page Load ---
+    window.onload = function() {
+      newTable();
+    }
+  </script>
+</body>
+</html>
